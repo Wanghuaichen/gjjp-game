@@ -18,20 +18,39 @@
 * 模拟关卡
 */
 
+var server = 4;
+var arguments = process.argv.splice(2);
+if(arguments.length > 0){
+	server = parseInt(arguments[0]);
+}
+console.log('进入服务区', server);
+
+
+var username = 'xj1614792693';
+var password = '801268';
+
+
 var request = require('request');
 const queryString = require('query-string');
 
 
-var serverUrl_4 = 'http://llhzf.commpad.cn/servers/s4.php?sevid=4&ver=V1.0.54';
-var serverUrl_5 = 'http://llhzf.commpad.cn/servers/s5.php?sevid=5&ver=V1.0.54';
-var serverUrl_6 = 'http://llhzf.commpad.cn/servers/s6.php?sevid=6&ver=V1.0.54';
+var serverUrl_4 = 'http://llhzf.commpad.cn/servers/s4.php?sevid=4&ver=V1.0.61';
+var serverUrl_5 = 'http://llhzf.commpad.cn/servers/s5.php?sevid=5&ver=V1.0.61';
+var serverUrl_6 = 'http://llhzf.commpad.cn/servers/s6.php?sevid=6&ver=V1.0.61';
 var vipHeros_4 = [44, 8, 2, 6, 20, 9, 16, 17, 18, 19, 21];
-var vipHeros_5 = [44, 45, 2, 6, 20, 9, 16, 17, 18, 19, 21, 8];
-var vipHeros_6 = [44, 45, 2, 6, 20, 9, 16, 17, 18, 19, 21, 8];
+var vipHeros_5 = [44, 45, 2, 6, 20, 16, 10, 18, 19, 21, 8];
+var vipHeros_6 = [44, 2, 6, 20, 16, 10, 18, 19, 21, 8];
 
 var vipHeros = vipHeros_4;
-
 var serverUrl = serverUrl_4;
+if(server == 5){
+	vipHeros = vipHeros_5;
+	serverUrl = serverUrl_5;
+}else if(server == 6){
+	vipHeros = vipHeros_6;
+	serverUrl = serverUrl_6;
+}
+
 
 var apiUrl = serverUrl;
 
@@ -75,25 +94,37 @@ var heroNames = [
 	{id: 19, name: '管仲'},
 	{id: 20, name: '程咬金'},
 	{id: 21, name: '华佗'},
-	{id: 22, name: ''},
-	{id: 23, name: ''},
-	{id: 24, name: ''},
+	{id: 22, name: '墨子'},
+	{id: 23, name: '李白'},
+	{id: 24, name: '廉颇'},
 	{id: 25, name: ''},
 	{id: 26, name: ''},
 	{id: 27, name: ''},
 	{id: 28, name: ''},
 	{id: 29, name: ''},
 	{id: 30, name: ''},
+	{id: 43, name: '岳飞'},
 	{id: 44, name: '狄仁杰'},
-	{id: 45, name: '韩信'}
+	{id: 45, name: '韩信'},
+	{id: 46, name: '曹操'}
 
 ];
 
+function getHeroName(hid){
+	var name = 'NaN';
+	var hero = heroNames.find(function(h){return h.id == hid});
+	if(hero) name = hero.name;
+	return name;
+}
 
+
+var heros_yamen = [48, 47, 46, 45, 44, 43, 42, 41, 40, 2, 6, 16, 11];
 
 var heros = [];
 
 var school = {};
+var mingwang = {};
+var hanlin_running = false;
 
 /**
 * 服务器列表
@@ -121,7 +152,7 @@ function randomWait(n){
 var fastToken;
 
 function fastLogin(){
-	var tokenUrl = 'http://usercenter.zhisnet.cn/account/fastLogin.php?appid=205&username=xj1614792693&password=801268';
+	var tokenUrl = 'http://usercenter.zhisnet.cn/account/fastLogin.php?appid=205&username=' + username + '&password=' + password;
 	request(tokenUrl, function(error, response, body) {
 	  if(!error && response.statusCode == 200){
 	  	try{
@@ -139,14 +170,11 @@ function fastLogin(){
 		  		console.log('登录失败, status = ' + loginObj.status + ', msg = ' + loginObj.msg);
 		  	}
 	  	}catch(e){
-	  		console.log(e);
+	  		console.log('fastLogin error', e, body);
 	  	}
-
-
-	  	
 	    
 	  }else{
-	  	console.log(error);
+	  	console.log(error, body);
 	  	setTimeout(fastLogin, randomWait(5));
 	  }
 	});
@@ -161,7 +189,7 @@ fastLogin();
 
 function accountLogin(){
 	console.log('do account login');
-	var formData = {"login":{"loginAccount":{"platform":"llhzfgjjp","openid":"xj1614792693","openkey":fastToken}}};
+	var formData = {"login":{"loginAccount":{"platform":"llhzfgjjp", "openid":username, "openkey":fastToken}}};
 
 
 	request.post({url: serverUrl + '&uid=&token=', form: JSON.stringify(formData)}, function(error, response, body){
@@ -181,16 +209,18 @@ function accountLogin(){
 
 				}
 				if(respData.a.system.errror){
-					console.log(JSON.stringify(respData.a.system.errror, null, '  '));
+					console.log('accountLogin error', JSON.stringify(respData.a.system.errror, null, '  '));
+
+					setTimeout(fastLogin, randomWait(15));
 				}
 			}catch(e){
-				console.log(e);
-				setTimeout(accountLogin, randomWait(5));
+				console.log('accountLogin error', e, body);
+				setTimeout(fastLogin, randomWait(15));
 			}
-
 			
-			
-			
+		}else{
+			console.log('accountLogin error', error, body);
+			setTimeout(fastLogin, randomWait(15));
 		}
 	});
 }
@@ -209,14 +239,21 @@ function finalLogin(){
 				if(respData.a.user){
 
 					userParam = respData.a.user.user;
-					console.log('用户信息:', 'level =', userParam.level, 'cash = ', userParam.cash, 'coin = ', userParam.coin,
+					console.log('用户信息: name=', userParam.name, 'level =', userParam.level, 'cash = ', userParam.cash, 'coin = ', userParam.coin,
 						'food = ', userParam.food, 'cash = ', userParam.food);
+				}
 
+				if(respData.a.hanlin){
+					console.log('校场经验', respData.a.hanlin.info);
 				}
 
 
 				if(respData.a.school){
 					school = respData.a.school;
+				}
+
+				if(respData.a.laofang){
+					mingwang = respData.a.laofang.mingwang;
 				}
 
 
@@ -247,7 +284,7 @@ function finalLogin(){
 					console.log(JSON.stringify(respData.a.system.errror, null, '  '));
 				}
 			}catch(e){
-				console.log(e);
+				console.log('finalLogin error', e, body);
 				setTimeout(finalLogin, randomWait(5));
 			}
 
@@ -261,6 +298,8 @@ function startTask(){
 
 	doTask();
 
+	setTimeout(fastLogin, 300000 + randomWait(300));
+/*
 	setTimeout(function(){
 		isTaskRunning = false;
 		if(serverUrl == serverUrl_4){
@@ -285,16 +324,16 @@ function startTask(){
 			fastLogin();
 		}
 
-	}, 120000);  // 5分钟后重新执行
-
+	}, 300000);  // 5分钟后重新执行
+*/
 }
 
-var isTaskRunning = false;
+//var isTaskRunning = false;
 function doTask(){
 	// 执行任务
 
-	if(isTaskRunning) return;
-	isTaskRunning = true;
+	//if(isTaskRunning) return;
+	//isTaskRunning = true;
 
 	console.log('开始执行任务', new Date().toLocaleString());
 
@@ -306,19 +345,37 @@ function doTask(){
 	setTimeout(checkXunfang, randomWait(30));    // 寻访
 	setTimeout(doSonPlay, randomWait(30));       // 子嗣培养
 	setTimeout(uppkskill, randomWait(30));       // 门客技能升级
-	setTimeout(doHeroUpgrade, randomWait(30));  // 门客等级升级
+	// setTimeout(doHeroUpgrade, randomWait(30));  // 门客等级升级
 
 
 	setTimeout(fuli_qiandao, randomWait(60));     // 每日签到
 	setTimeout(mobai, randomWait(60));            // 膜拜榜单
-	// setTimeout(laofang, randomWait(120));      // 牢房
+
+	if(mingwang.mw == mingwang.maxmw){				// 名望满时，执行牢房任务
+		setTimeout(laofang, randomWait(120));      // 牢房
+	}
+
+	if(!hanlin_running){
+		setTimeout(hanlin, randomWait(5));
+		hanlin_running = true;
+	}
+	
 	setTimeout(qingan, randomWait(60));           // 皇宫请安
 
-	// setTimeout(yamen, randomWait(30));            // 衙门战斗
+	setTimeout(yamen, randomWait(30));            // 衙门战斗
 	setTimeout(wordboss, randomWait(30));         // 中午 匈奴兵来袭
-	setTimeout(jiulou, randomWait(30));           // 酒楼
 
-	// setTimeout(pve.bind(this, 40), randomWait(120));
+
+	setTimeout(wordboss_gofightg2d, randomWait(5));         // 围剿匈奴王
+
+	
+	setTimeout(keju, randomWait(10));
+	setTimeout(huodong, randomWait(20));
+	setTimeout(club_boss, randomWait(10));
+	// setTimeout(jiulou, randomWait(30));           // 酒楼
+
+
+	setTimeout(pve.bind(this, 40), randomWait(120));
 	
 	
 }
@@ -366,13 +423,13 @@ function checkJingying(){
 				}
 
 			}catch(e){
-				console.log(e);
+				console.log('refjingying error', e);
 				setTimeout(checkJingying, 1000);
 			}
 			
 			
 		}else{
-			console.log('checkJingying error! ', error);
+			console.log('checkJingying error! ', error, body);
 		}
 	});
 
@@ -398,7 +455,7 @@ function doJingying(jytype){
 						console.log('coin经营失败', JSON.stringify(respData.a.system.errror, null, '  '));
 					}
 				}catch(e){
-					console.log(e);
+					console.log('doJingying coin error', e, body);
 					setTimeout(doJingying.bind(this, 'coin'), randomWait(10));
 				}
 				
@@ -427,7 +484,7 @@ function doJingying(jytype){
 						console.log('food经营失败', JSON.stringify(respData.a.system.errror, null, '  '));
 					}
 				}catch(e){
-					console.log(e);
+					console.log('doJingying food error', e, body);
 					setTimeout(doJingying.bind(this, 'food'), randomWait(10));
 				}
 
@@ -455,7 +512,7 @@ function doJingying(jytype){
 						console.log('army经营失败', JSON.stringify(respData.a.system.errror, null, '  '));
 					}					
 				}catch(e){
-					console.log(e);
+					console.log('doJingying army error', e, body);
 					setTimeout(doJingying.bind(this, 'army'), randomWait(10));
 				}
 
@@ -503,8 +560,7 @@ function checkXunfang(){
 			console.log('checkXunfang error! ', error);
 		}
 	});
-	var xunfangDelay = 1800000;   // 寻访间隔，半小时
-	setTimeout(checkXunfang, xunfangDelay);  // 半小时后再次寻访
+	
 }
 
 function doXunfang(){
@@ -526,8 +582,8 @@ function doXunfang(){
 				}
 
 			}catch(e){
-				setTimeout(doXunfang, randomWait(5));
-
+				//setTimeout(doXunfang, randomWait(5));
+				console.log('xunfang error', e, body);
 			}
 			
 			
@@ -547,10 +603,15 @@ function doXunfang(){
 /** 
 * 政务
 */
+function zhengwu(){
+
+
+}
+
 
 function doZhengwu(){
 	console.log('执行一次政务检查任务', new Date().toLocaleString());
-	var formData = '{"user":{"zhengWu":{"act":1}}}';
+	var formData = '{"user":{"zhengWu":{"act":2}}}';
 	request.post({url: apiUrl, form: formData}, function(error, response, body){
 		if(!error && response.statusCode == 200){
 			try{
@@ -565,7 +626,7 @@ function doZhengwu(){
 					}
 				}
 				if(respData.a.system.errror){
-					console.log('政务失败.', JSON.stringify(respData.a.system.errror, null, '  '));
+					console.log('政务失败.', respData.a.system.errror.msg);
 				}
 			}catch(e){
 				setTimeout(doZhengwu, randomWait(10));
@@ -599,10 +660,10 @@ function doChuanhuan(){
 					}
 				}
 				if(respData.a.system.errror){
-					console.log(JSON.stringify(respData.a.system.errror, null, '  '));
+					console.log(respData.a.system.errror.msg);
 				}
 			}catch(e){
-				console.log(e);
+				console.log('wife-sjxo error', e, body);
 				setTimeout(doChuanhuan, randomWait(10));
 			}
 			
@@ -645,7 +706,7 @@ function doSonPlay(){
 					console.log(JSON.stringify(respData.a.system.errror, null, '  '));
 				}
 			}catch(e){
-				console.log(e);
+				console.log('refson error', e, body);
 				setTimeout(doSonPlay, randomWait(5));
 			}
 
@@ -675,7 +736,7 @@ function playSon(son){
 
 		}catch(e){
 
-			console.log(e);
+			console.log('play son error', e, body);
 			setTimeout(playSon.bind(this, son), randomWait(5));
 		}
 
@@ -692,7 +753,7 @@ function pve(times){
 
 	if(times == 0){
 		// pve完成，打boss
-		pvb(1);
+		pvb();
 		return;
 	}
 
@@ -713,13 +774,13 @@ function pve(times){
 						var deil = respData.a.user.win.pvewin.deil;
 						console.log('armay = ' + army + ', deil = ' + deil);
 						if(army > deil){
-							setTimeout(function(){pve(times - 1);}, randomWait(5));
+							setTimeout(function(){pve(times - 1);}, randomWait(10));
 						}else{
 							console.log('兵力不足, respData.s == 1');
 						}
 						
 					}else if(respData.s == 0 && respData.a.system.errror.type == 0){
-						setTimeout(function(){pvb(1)}, randomWait(5));
+						setTimeout(function(){pvb()}, randomWait(5));
 					}else if(respData.s == 2){
 						console.log('兵力不足, respData.s == 2');
 					}
@@ -727,8 +788,7 @@ function pve(times){
 						console.log(JSON.stringify(respData.a.system.errror, null, '  '));
 					}
 				}catch(e){
-					console.log(e);
-					setTimeout(function(){pve(times - 1);}, randomWait(5));
+					console.log('pve error', e, body);
 				}
 				
 			}else{
@@ -736,58 +796,49 @@ function pve(times){
 			}
 		});
 	}catch(e){
-		console.log(e);
-		setTimeout(function(){pve(times)}, randomWait(5));
+		console.log('pve error', e);
 	}
 	
 }
 
-function pvb(uindex){
-	// var pvbData = {"guide":{"guide":{"smap":userParam.smap,"bmap":userParam.bmap,"mmap":userParam.mmap}}};
+function pvb(){
+	heros.forEach(function(h, index){
+		setTimeout(pvb_fight.bind(this, h.id), (index + 1) * randomWait(3));
+	});
+}
 
-	var hero = heros[uindex - 1];
-	if(!hero){
-		console.log('pvb 任务失败, all the heros have been killed.')
-		return;
-	}
-	console.log('执行pvb任务, index = ', uindex, 'hero is ', hero.name);
+function pvb_fight(hid){
 	
-	var pvbUser = {"user":{"pvb":{"id": hero.id}}};
+	
+	var pvbUser = {"user":{"pvb":{"id": hid}}};
+	
 
 	request.post({url: apiUrl, form: JSON.stringify(pvbUser)}, function(error, response, body){
 		if(!error && response.statusCode == 200){
+
+			var msg = '成功';
 			try{
 				var respData = JSON.parse(body);
 
-				if(respData.s == 2){
-					setTimeout(function(){pvb(uindex + 1)}, 1000);
-				}else if(respData.s == 1){
-					setTimeout(function(){pve(40)}, 1000);
-				}
 				if(respData.a.system.errror){
-					console.log(JSON.stringify(respData.a.system.errror, null, '  '));
-					setTimeout(function(){pve(40)}, randomWait(10));
+					msg = respData.a.system.errror.msg;
 				}
 
 			}catch(e){
-				console.log(e);
-				setTimeout(function(){pvb(uindex)}, 1000);
-
+				console.log('pvb error', e, body);
 			}
+			console.log('执行pvb任务', 'hero is ', getHeroName(hid), msg);
 			
 		}else{
 			console.log('pvb任务失败.', error);
 		}
+
+		
 	});
 
 }
 
-function getHeroName(hid){
-	var name = 'NaN';
-	var hero = heroNames.find(function(h){return h.id == hid});
-	if(hero) name = hero.name;
-	return name;
-}
+
 
 /**
 * 书院学习
@@ -844,7 +895,7 @@ function doSchool(){
 						console.log(JSON.stringify(respData.a.system.errror, null, '  '));
 					}
 				}catch(e){
-					console.log(e);
+					console.log('school-allover error', e, body);
 					setTimeout(doSchool, randomWait(5));
 				}
 				
@@ -882,7 +933,7 @@ function sendToSchool(hid, sid){
 				}
 
 			}catch(e){
-				console.log(e);
+				console.log('school-start error', e,  body);
 				setTimeout(sendToSchool.bind(this, hid, sid), randomWait(5));
 			}
 			
@@ -907,9 +958,11 @@ function fuli_qiandao(){
 */
 function mobai(){
 	
-	setTimeout(doMobai.bind(this, 1), randomWait(30));
-	setTimeout(doMobai.bind(this, 2), randomWait(30));
-	setTimeout(doMobai.bind(this, 3), randomWait(30));
+	setTimeout(doMobai.bind(this, 1), randomWait(5));
+	setTimeout(doMobai.bind(this, 2), randomWait(5));
+	setTimeout(doMobai.bind(this, 3), randomWait(5));
+	setTimeout(doMobai.bind(this, 4), randomWait(5));
+	setTimeout(doMobai.bind(this, 5), randomWait(5));
 
 }
 
@@ -918,6 +971,8 @@ function doMobai(type){
 		if(p == 1) return '势力榜';
 		if(p == 2) return '关卡榜';
 		if(p == 3) return '亲密榜';
+		if(p == 4) return '跨服势力';
+		if(p == 5) return '跨服帮会';
 		return 'NaN';
 	}
 
@@ -930,10 +985,10 @@ function doMobai(type){
 						console.log('膜拜', getTypeName(type));
 					}
 					if(respData.a.system.errror){
-						console.log(JSON.stringify(respData.a.system.errror, null, '  '));
+						// console.log(JSON.stringify(respData.a.system.errror, null, '  '));
 					}
 				}catch(e){
-					console.log(e);
+					console.log('ranking-mobai error', e, body);
 				}
 				
 			}
@@ -944,6 +999,7 @@ function doMobai(type){
 * 牢房
 */ 
 function laofang(){
+
 	var formData = '{"laofang":{"bianDa":{"type":1}}}';
 	request.post({url: apiUrl, form: formData}, function(error, response, body){
 		try{
@@ -954,7 +1010,7 @@ function laofang(){
 			}
 
 		}catch(e){
-			console.log(e);
+			console.log('laofang-bianDa error', e, body);
 		}
 			
 		});
@@ -974,7 +1030,7 @@ function qingan(){
 				console.log('执行请安操作');
 			}
 		}catch(e){
-			console.log(e);
+			console.log('huanggong-qingAn error', e, body);
 		}
 			
 		});
@@ -991,19 +1047,14 @@ function yamen(){
 			var respData = JSON.parse(body);
 			// console.log(JSON.stringify(respData, null, '  '));
 			if(respData.s == 1) {
+				if(respData.a.yamen.fight.hid){
+					console.log('出使门客', getHeroName(respData.a.yamen.fight.hid));
+				}
 				if(respData.a.yamen.fight.fstate == 1){
 						var fheros = respData.a.yamen.fight.fheros;
 
 						if(fheros.length > 0){
-							var random = Math.random();
-
-							var fhero = fheros[0];
-							if(random > 0.6){
-								fhero = fheros[2];
-							}else if(random > 0.3){
-								fhero = fheros[1];
-							}
-							yamen_fight(fhero.id);
+							yamen_fight_heros(fheros);
 						}
 				}else{
 					// 批准
@@ -1018,15 +1069,7 @@ function yamen(){
 							var fheros = respData.a.yamen.fight.fheros;
 
 							if(fheros.length > 0){
-								var random = Math.random();
-
-								var fhero = fheros[0];
-								if(random > 0.6){
-									fhero = fheros[2];
-								}else if(random > 0.3){
-									fhero = fheros[1];
-								}
-								yamen_fight(fhero.id);
+								yamen_fight_heros(fheros);
 							}
 						}
 					});
@@ -1039,7 +1082,7 @@ function yamen(){
 			}
 		}catch(e){
 
-			console.log(e);
+			console.log('yamen error', e, body);
 		}
 
 		
@@ -1047,54 +1090,116 @@ function yamen(){
 	});
 }
  
+function yamen_fight_heros(fheros){
+	var hArr = [];
+	fheros.forEach(function(h){
+		hArr.push({name: getHeroName(h.id), senior: h.senior});
+	});
+	console.log('衙门对战', hArr);
 
+	var fhero = fheros[0];
+	for(var i = 1; i < fheros.length; i++){
+		var fhero2 = fheros[i];
+		if(fhero.senior > fhero2.senior){
+			fhero = fhero2;
+		}else if(fhero.senior == fhero2.senior){
+
+			var hIndex1 = heros_yamen.findIndex(function(hid){return hid == fhero.id;});
+			var hIndex2 = heros_yamen.findIndex(function(hid){return hid == fhero2.id;});
+			if(hIndex2 == -1 && hIndex1 != -1){
+				fhero = fhero2;
+			}
+			if(hIndex1 < hIndex2){
+				fhero = fhero2;
+			}
+		}
+	}
+	console.log('选中', getHeroName(fhero.id));
+
+	yamen_fight(fhero.id);
+}
+
+var shopInfo = {
+	'4': '初级血量',
+	'5': '初级技能',
+	'6': '初级攻击',
+	'7': '中级血量',
+	'8': '中级技能',
+	'9': '中级攻击'
+}
 function yamen_fight(heroId){
-	var hero = heros.find(function(h){ return h.id == heroId;});
-	console.log('衙门战斗, fhero is ', hero);
+	
+	console.log('衙门战斗, fhero is ', heroId, getHeroName(heroId));
 	var formData = {"yamen":{"fight":{"id":heroId}}};
 	request.post({url: apiUrl, form: JSON.stringify(formData)}, function(error, response, body){
 		try{
 			var respData = JSON.parse(body);
 			// console.log(JSON.stringify(respData, null, '  '));
 			if(respData.s == 1 ){
-
 				if(respData.a.yamen.win.over && respData.a.yamen.win.over.isover == 1){
 					console.log('战斗结束');
+
 					return;
 				}
 
-								
-				var fheros = respData.a.yamen.fight.fheros;
-
-				var random = Math.random();
-
-				var fhero = fheros[0];
-				if(random > 0.6){
-					fhero = fheros[2];
-				}else if(random > 0.3){
-					fhero = fheros[1];
+				if(respData.a.yamen.fight){
+					var hp = respData.a.yamen.fight.hp;
+					var hpmax = respData.a.yamen.fight.hpmax;
+					if(hpmax) console.log('剩余血量', hp/hpmax);
 				}
 
-				
+
 				if(respData.a.yamen.fight.fstate == 1){
-					var shop = respData.a.yamen.fight.shop;
-					if(shop.length > 0){
-						console.log('衙门战斗: 临时属性加成', shop[0].id);
-						var shopData = {"yamen":{"seladd":{"id":shop[0].id}}};
-						request.post({url: apiUrl, form: JSON.stringify(shopData)}, function(){
+					if(respData.a.yamen.fight.money >=2 ){
+						var shop = respData.a.yamen.fight.shop;
+						if(shop.length > 0){
+							var shopId = shop[0].id;
+							var hp = respData.a.yamen.fight.hp;
+							var hpmax = respData.a.yamen.fight.hpmax;
+							if(hp / hpmax <= 0.9){
+								if(shop[1].id == 7) shopId = shop[1].id;
+							}
+
+							if(shopId == 6 || shopId == 9){
+								var fheros = respData.a.yamen.fight.fheros;
+								if(fheros.length > 0) {
+									yamen_fight_heros(fheros);
+								}
+							}else{
+								console.log('衙门战斗: 临时属性加成', shopInfo[shopId]);
+								var shopData = {"yamen":{"seladd":{"id":shopId}}};
+								request.post({url: apiUrl, form: JSON.stringify(shopData)}, function(){
+									try{
+										var respData = JSON.parse(body);
+										var fheros = respData.a.yamen.fight.fheros;
+										if(fheros.length > 0) {
+											yamen_fight_heros(fheros);
+										}
+									}catch(e){
+										console.log('yamen_fight seladd error', e, body);
+									}
+									
+								});
+							}
 							
-							setTimeout(yamen_fight.bind(this, fhero.id), randomWait(5));
-							
-						});
+						}
+
+
+					}else{
+						console.log('money 不足, 不购买临时属性');
+
+						var fheros = respData.a.yamen.fight.fheros;
+						if(fheros.length > 0) {
+							yamen_fight_heros(fheros);
+						}
 					}
+
+					
 				}
 				 else if(respData.a.yamen.fight.fstate == 2){
-					
-					setTimeout(yamen_getrwd.bind(this, fhero.id), randomWait(5));
+					setTimeout(yamen_getrwd, randomWait(5));
 						
 				}
-				
-				
 			}
 
 			if(respData.a.system.errror){
@@ -1102,7 +1207,7 @@ function yamen_fight(heroId){
 				}
 
 		}catch(e){
-			console.log(e);
+			console.log('yamen_fight error', e, body);
 			setTimeout(yamen_fight.bind(this, heroId), randomWait(5));
 		}
 
@@ -1110,23 +1215,27 @@ function yamen_fight(heroId){
 	});
 }
 
-function yamen_getrwd(heroId){
+function yamen_getrwd(){
 	console.log('衙门战斗 领取奖励');
 	var formData = '{"yamen":{"getrwd":[]}}';
 	request.post({url: apiUrl, form: formData}, function(error, response, body){
 		try{
 			var respData = JSON.parse(body);
-			if(respData.s == 1 ){
-				setTimeout(yamen_fight.bind(this, heroId), randomWait(5));
-				
+			if(respData.s == 1 && respData.a.yamen.fight){
+				var fheros = respData.a.yamen.fight.fheros;
+				if(fheros.length > 0){
+					yamen_fight_heros(fheros);
+				}else{
+					console.log('全歼对方门客');
+				}
 			}
 
 			if(respData.a.system.errror){
 					console.log(JSON.stringify(respData.a.system.errror, null, '  '));
 				}
 		}catch(e){
-			console.log(e);
-			setTimeout(yamen_getrwd.bind(this, heroId), randomWait(5));
+			console.log('yamen_getrwd error', e, body);
+			setTimeout(yamen_getrwd, randomWait(5));
 		}
 		
 	});
@@ -1158,28 +1267,41 @@ function doHeroUpgrade(){
 
 function hero_upgrade(hid){
 	var hero = heros.find(function(h){ return h.id == hid;});
+
+	if(!hero){
+       console.log('hero_upgrade, hero not find', hid);
+       return;
+    }
+
 	console.log('门客升级, hero is', hero.name);
 
 	var reqData = {"hero":{"upgrade":{"id":hid}}};
 	request.post({url: apiUrl, form: JSON.stringify(reqData)}, function(error, response, body){
-		var respData = JSON.parse(body);
-		if(respData.s == 1 && respData.u.user.user.coin > 0){
 
-			var hero = respData.u.hero.heroList[0];
-			var heroIndex = heros.find(function(h){return h.id == hero.id;});
-			hero.name = getHeroName(hero.id);
-			heros[heroIndex] = hero;
-			console.log('门客升级成功', hero.name, hero.level);
-			
-			if(respData.u.user.user.coin > 100000){
-				setTimeout(hero_upgrade.bind(this, hid), randomWait(5));
+		try{
+			var respData = JSON.parse(body);
+			if(respData.s == 1 && respData.u.user.user.coin > 0){
+
+				var hero = respData.u.hero.heroList[0];
+				var heroIndex = heros.find(function(h){return h.id == hero.id;});
+				hero.name = getHeroName(hero.id);
+				heros[heroIndex] = hero;
+				console.log('门客升级成功', hero.name, hero.level);
+				
+				if(respData.u.user.user.coin > 100000){
+					setTimeout(hero_upgrade.bind(this, hid), randomWait(5));
+				}
+				
 			}
-			
+
+			if(respData.a.system.errror){
+					console.log(JSON.stringify(respData.a.system.errror, null, '  '));
+				}
+
+		}catch(e){
+			console.log('hero_upgrade error', e, body);
 		}
-
-		if(respData.a.system.errror){
-				console.log(JSON.stringify(respData.a.system.errror, null, '  '));
-			}
+		
 	});
 
 }
@@ -1215,7 +1337,7 @@ function jiulou(){
 								});
 
 								if(seat){
-									var yhChi = {"jiulou":{"yhChi":{"type":2,"xwid":seat.id,"fuid":fUid}}};
+									var yhChi = {"jiulou":{"yhChi":{"type":1,"xwid":seat.id,"fuid":fUid}}};
 									request.post({url: apiUrl, form: JSON.stringify(yhChi)}, function(error, response, body){
 										
 										try{
@@ -1227,7 +1349,7 @@ function jiulou(){
 												console.log(JSON.stringify(respData.a.system.errror, null, '  '));
 											}
 										}catch(e){
-											console.log(e);
+											console.log('jiulou-yhChi error', e, body);
 										}
 										
 									});							
@@ -1238,7 +1360,7 @@ function jiulou(){
 
 							}
 						}catch(e){
-							console.log(e);
+							console.log('jiulou-yhGo error', e, body);
 						}
 						
 					});
@@ -1249,7 +1371,7 @@ function jiulou(){
 				
 			}
 		}catch(e){
-			console.log(e);
+			console.log('jiulou-jlInfo error', e, body);
 		}
 
 		
@@ -1261,10 +1383,11 @@ function jiulou(){
 * 战场
 */
 function wordboss(){
-	console.log('进入战场, wordboss, ', new Date().toLocaleString());
-	if(new Date().getHours < 12 || new Date().getHours() > 14){
-		console.log('时间未到，战场未开启');
+	
+	if(new Date().getHours() < 12 || new Date().getHours() >= 14){
+		return;
 	}
+	console.log('进入战场-匈奴兵来袭, wordboss, ', new Date().toLocaleString());
 
 	var wbForm = '{"wordboss":{"wordboss":[]}}';
 
@@ -1278,14 +1401,19 @@ function wordboss(){
 					try{
 						var respData = JSON.parse(body);
 						if(respData.s == 1){
-							setTimeout(wordboss_fight.bind(this, 1), randomWait(5));
+							// 派遣门客战斗
+							var sortHeros = heros.sort(function(h1, h2){return h1.zz.e1 - h2.zz.e1});
+							sortHeros.forEach(function(h, index){
+								setTimeout(wordboss_fight.bind(this, h.id), (index+1) * 2000);
+							});
+
 						}
 						if(respData.a.system.errror){
 							console.log(JSON.stringify(respData.a.system.errror, null, '  '));
 						}
 
 					}catch(e){
-						console.log(e);
+						console.log('wordboss-goFightmg error', e, body);
 						setTimeout(goFightmg, randomWait(10));
 					}
 
@@ -1296,33 +1424,24 @@ function wordboss(){
 				console.log(JSON.stringify(respData.a.system.errror, null, '  '));
 			}
 		}catch(e){
-			console.log(e);
+			console.log('wordboss-wordboss error', e, body);
 			setTimeout(wordboss, randomWait(10));
 		}
 	});
 }
 
-function wordboss_fight(index){
-	
-	var hero = heros[heros.length - index];
-	if(!hero){
-		console.log('战场 - 未找到战斗的门客, 战斗结束!', index);
-		return;
-	}
-	console.log('战场 - 门课战斗, 出场', hero.name);
-	var hitmenggu = {"wordboss":{"hitmenggu":{"id":hero.id}}};
+function wordboss_fight(hid){
+	console.log('战场 - 匈奴兵来袭 - 门客战斗, 出场', getHeroName(hid));
+	var hitmenggu = {"wordboss":{"hitmenggu":{"id":hid}}};
 	request.post({url: apiUrl, form: JSON.stringify(hitmenggu, null, '  ')}, function(error, response, body){
 		try{
 			var respData = JSON.parse(body);
-			if(respData.s == 1){
-				setTimeout(wordboss_fight.bind(this, index + 1), randomWait(5));
-			}
 			if(respData.a.system.errror){
-				console.log(JSON.stringify(respData.a.system.errror, null, '  '));
+				console.log(JSON.stringify(respData.a.system.errror));
 			}
 
 		}catch(e){
-			console.log(e);
+			console.log('wordboss-hitmenggu error', e, body);
 			setTimeout(wordboss_fight.bind(this, index), randomWait(5));
 		}
 
@@ -1331,6 +1450,67 @@ function wordboss_fight(index){
 }
 
 
+/**
+* 围剿匈奴王
+*/
+function wordboss_gofightg2d(){
+	var cur_date = new Date();
+	if(cur_date.getHours() < 20 || cur_date.getHours() >= 21){
+		console.log('围剿匈奴王 - 时间未到', new Date().toLocaleString());
+		setTimeout(wordboss_gofightg2d, 300 * 1000);
+		return;
+	}
+
+
+	var wbForm = '{"wordboss":{"goFightg2d":[]}}';
+	request.post({url: apiUrl, form: wbForm}, function(error, response, body){
+		try{
+			var respData = JSON.parse(body);
+			if(respData.s == 1 && respData.a.wordboss.ge2dan){
+				heros.forEach(function(hero, index){
+					setTimeout(wordboss_hitgeerdan.bind(this, hero), index * 1000 + 100);
+				});
+				
+			}
+			if(respData.a.system.errror){
+				console.log(JSON.stringify(respData.a.system.errror, null, '  '));
+			}
+		}catch(e){
+			console.log('wordboss-goFightg2d error', e, body);
+		}
+	});
+
+}
+
+
+function wordboss_hitgeerdan(hero){
+	
+	
+	var hitgeerdan = {"wordboss":{"hitgeerdan":{"id":hero.id}}};
+	request.post({url: apiUrl, form: JSON.stringify(hitgeerdan)}, function(error, response, body){
+		try{
+			var respData = JSON.parse(body);
+			if(respData.s == 1){
+				var damagePercent = 0;
+				if(respData.a.wordboss.ge2dan){
+					var allhp = respData.a.wordboss.ge2dan.allhp;
+					var damage = respData.a.wordboss.ge2dan.damage;
+					if(allhp != 0) damagePercent = damage / allhp;
+				}
+
+				console.log('战场 - 围剿匈奴王 - 门客战斗, 出场', hero.name, damagePercent, new Date().toLocaleString());
+			}
+			if(respData.a.system.errror){
+				console.log(JSON.stringify(respData.a.system.errror, null, '  '));
+			}
+
+		}catch(e){
+			console.log('wordboss-hitgeerdan error', e, body);
+		}
+
+	});
+
+}
 
 /*
 * 升级门客技能
@@ -1338,7 +1518,7 @@ function wordboss_fight(index){
 function uppkskill(){
 	console.log('升级门客技能', new Date().toLocaleString());
 	heros.forEach(function(hero){
-		if(hero.pkexp > 50){
+		if(hero.pkexp > 150){
 			if(hero.pkskill[0].level > hero.pkskill[1].level){
 				setTimeout(doUppkskill.bind(this, 2, hero.id), randomWait(5));
 			}else{
@@ -1353,7 +1533,7 @@ function doUppkskill(sid, hid){
 	var formData = {"hero":{"uppkskill":{"sid":sid,"id":hid}}};
 	var skillName = (sid == 1)? '辩才' : '学识';
 	console.log('升级门客技能', skillName, getHeroName(hid));
-	request.post({url: apiUrl, form: JSON.stringify(formData, null, '  ')}, function(error, response, body){
+	request.post({url: apiUrl, form: JSON.stringify(formData)}, function(error, response, body){
 		try{
 			var respData = JSON.parse(body);
 			if(respData.s == 1){
@@ -1378,15 +1558,312 @@ function doUppkskill(sid, hid){
 				
 			}
 			if(respData.a.system.errror){
-				console.log('门客技能升级失败', getHeroName(hid));
-				console.log(JSON.stringify(respData.a.system.errror, null, '  '));
+				console.log('门客技能升级失败', getHeroName(hid), respData.a.system.errror.msg);
 			}
 
 		}catch(e){
-			console.log(e);
+			console.log('doUppkskill error', e, body);
 			
 		}
 
 	});
 
+}
+
+
+
+/**
+* 演武场
+*/
+var hanlin_check_count = 0;
+var hanlin_sit_time = 0;
+var challengeRecord = [];
+
+function hanlin(){
+	var hanlin_info = '{"hanlin":{"listinfo":[]}}';
+	
+	if(hanlin_check_count == 0) {
+		console.log('启动校场任务', new Date().toLocaleString());
+	}
+
+	var cur_t = new Date().getTime();
+	if(hanlin_sit_time > 0 && (cur_t - hanlin_sit_time < 1200000)) {
+		setTimeout(hanlin, 1200000 + randomWait(120));
+		return;
+	}
+
+	request.post({url: apiUrl, form: hanlin_info}, function(error, response, body){
+		try{
+			var respData = JSON.parse(body);
+			if(respData.s == 1 && respData.a.hanlin){
+				var ting = respData.a.hanlin.ting;
+
+				if(hanlin_check_count % 60 == 0){
+					console.log('校场 - 检测 - ', ting.length, new Date().toLocaleString());
+				}
+				hanlin_check_count++;
+
+				if(ting && ting.length > 0){
+					ting.forEach(function(t, index){
+						//if(t.num2 < 3){
+							setTimeout(hanlin_comein.bind(this, t.uid), index * 1000 + randomWait(3));
+							//return;
+						//}
+					});
+				}
+			}
+			if(respData.a.system.errror){
+				// console.log(JSON.stringify(respData.a.system.errror, null, '  '));
+			}
+		}catch(e){
+			console.log('hanlin-listinfo error', e, body);
+		}
+
+	});
+
+	setTimeout(hanlin, randomWait(30));  // 5秒钟检测一次
+}
+
+function hanlin_comein(fuid){
+	// console.log('校场 - 进入习武厅', fuid, new Date().toLocaleString());
+	var formData = {"hanlin":{"comein":{"fuid":fuid}}};
+	request.post({url: apiUrl, form: JSON.stringify(formData)}, function(error, response, body){
+		try{
+			var respData = JSON.parse(body);
+			if(respData.s == 1 && respData.a.hanlin){
+				var desks = respData.a.hanlin.desk.desks;
+				var ridArr = [];
+				desks.forEach(function(d){
+					ridArr[d.rid] = d.rid;
+				});
+				for(var i = 1; i <=3; i++){
+					if(!ridArr[i]){
+						setTimeout(hanlin_sitdown.bind(this, fuid, i), 100);
+						break;
+					}
+				}
+
+				// 挑战 
+				desks.forEach(function(desk, index){
+					if(desk.num == 0 && desk.level <= userParam.level){
+						var challenger = challengeRecord.find(function(ch){return ch.uid == desk.uid;});
+						// console.log('习武-挑战条件检查',challengeRecord);
+						if(challenger && (new Date().getTime() - challenger.timestamp) < 12 * 3600000 ){
+							console.log('12小时内不再重复挑战', fuid);
+
+						}else{
+							setTimeout(hanlin_ti.bind(this, fuid, desk), index * 1000 + 400);
+						}
+
+					}
+				});
+				
+			}
+			if(respData.a.system.errror){
+				console.log(JSON.stringify(respData.a.system.errror, null, '  '));
+			}
+		}catch(e){
+			console.log('hanlin-comein error', e, body);
+		}
+
+	});
+
+}
+
+function hanlin_sitdown(fuid, rid){
+	console.log('校场 - 开始习武', fuid, rid);
+	var formData = {"hanlin":{"sitdown":{"rid":rid, "fuid":fuid}}};
+	request.post({url: apiUrl, form: JSON.stringify(formData)}, function(error, response, body){
+		try{
+			var respData = JSON.parse(body);
+			if(respData.s == 1 && respData.a.hanlin){
+				console.log('校场 - 开始习武 - 已就座', fuid, rid);
+				hanlin_sit_time = new Date().getTime();
+			}
+			if(respData.a.system.errror){
+				// console.log(JSON.stringify(respData.a.system.errror, null, '  '));
+			}
+		}catch(e){
+			console.log('hanlin-sitdown error', e, body);
+		}
+
+	});
+
+}
+
+function hanlin_ti(fuid, desk){
+	var rid = desk.rid;
+	var uid = desk.uid;
+	console.log('习武 - 挑战', desk.rid, desk.name, desk.level);
+	var formData = {"hanlin":{"ti":{"rid":rid,"uid":uid,"fuid":fuid}}};
+	request.post({url: apiUrl, form: JSON.stringify(formData)}, function(error, response, body){
+		try{
+			var respData = JSON.parse(body);
+			if(respData.s == 1){
+				if(respData.a.hanlin.win.tif.win == 0){
+					console.log('挑战失败');
+					challengeRecord.push({
+						uid: desk.uid,
+						timestamp: new Date().getTime()
+					});
+				}else if(respData.a.hanlin.win.tif.win == 0){
+					console.log('挑战成功');
+				}
+			}
+			if(respData.a.system.errror){
+				// console.log(JSON.stringify(respData.a.system.errror, null, '  '));
+			}
+		}catch(e){
+			console.log('hanlin-sitdown error', e, body);
+		}
+
+	});
+
+}
+
+function huodong(){
+	huodong_buy_282();
+	setTimeout(huodong_play_282, 5000);
+}
+function huodong_buy_282(){  // 购买道具
+	var formData = '{"huodong":{"hd282buy":{"id":1}}}';
+	request.post({url: apiUrl, form: formData}, function(error, response, body){
+		try{
+			var respData = JSON.parse(body);
+			if(respData.s == 1 && respData.a.penalize){
+				console.log('活动-购买活动道具');
+				var shop = respData.a.penalize.shop;
+				if(shop[0].limit > 0){
+					setTimeout(huodong_buy_282, 100);
+				}else{
+					console.log('道具购买数量不足');
+				}
+			}
+			if(respData.a.system.errror){
+				// console.log(JSON.stringify(respData.a.system.errror, null, '  '));
+			}
+		}catch(e){
+			console.log('huodong_buy_282 error', e, body);
+		}
+
+	});
+}
+
+function huodong_play_282(){
+	var formData = '{"huodong":{"hd282Info":[]}}';
+	request.post({url: apiUrl, form: formData}, function(error, response, body){
+		try{
+			var respData = JSON.parse(body);
+			if(respData.s == 1 && respData.a.penalize){
+				console.log('活动-282-play');
+				var bag = respData.a.penalize.bag;
+				bag.forEach(function(b){
+					for(var i = 0; i < b.count; i++){
+						setTimeout(huodong_doplay_282.bind(this, b.id), randomWait(10));
+					}
+				});
+			}
+			if(respData.a.system.errror){
+				// console.log(JSON.stringify(respData.a.system.errror, null, '  '));
+			}
+		}catch(e){
+			console.log('huodong_play_282 error', e, body);
+		}
+
+	});
+}
+function huodong_doplay_282(playId){
+	var formData = {"huodong":{"hd282play":{"id":playId}}};
+	request.post({url: apiUrl, form: JSON.stringify(formData)}, function(error, response, body){
+		try{
+			var respData = JSON.parse(body);
+			if(respData.s == 1){
+				console.log('活动-doplay-282', playId);
+			}
+			if(respData.a.system.errror){
+				// console.log(JSON.stringify(respData.a.system.errror, null, '  '));
+			}
+		}catch(e){
+			console.log('huodong_doplay_282 error', e, body);
+		}
+
+	});
+}
+
+function keju(){
+	console.log('检查科举');
+	var refsonForm = '{"user":{"refson":[]}}';
+	request.post({url: apiUrl, form: refsonForm}, function(error, response, body){
+		try{
+			var respData = JSON.parse(body);
+			if(respData.s == 1 && respData.a.son.sonList){
+				var sonList = respData.a.son.sonList;
+				sonList.forEach(function(son){
+					if(son.state == 3){
+						console.log('科举 - ', son.name);
+						setTimeout(doKeju.bind(this, son.id), randomWait(5));
+					}
+				});
+			}
+			if(respData.a.system.errror){
+				// console.log(JSON.stringify(respData.a.system.errror, null, '  '));
+			}
+		}catch(e){
+			console.log('huodong_doplay_282 error', e, body);
+		}
+
+	});
+}
+function doKeju(sonId){
+	var kejuForm = {"son":{"keju":{"id":sonId}}};
+	request.post({url: apiUrl, form: JSON.stringify(kejuForm)}, function(error, response, body){
+		
+	});
+}
+
+
+
+function club_boss(){
+	console.log('副本检测');
+	var bossForm = '{"club":{"clubBossInfo":[]}}';
+	request.post({url: apiUrl, form: bossForm}, function(error, response, body){
+		try{
+			var respData = JSON.parse(body);
+			if(respData.s == 1 && respData.a.club.bossInfo){
+				var bossInfo = respData.a.club.bossInfo;
+				if(bossInfo.length > 0){
+					bossInfo.forEach(function(boss, index){
+						if(boss.type == 1){
+							console.log('打副本boss - ', boss);
+							setTimeout(club_boss_fight.bind(this, boss.id), index * 10000 + 30000);
+						}
+					});
+				}
+				
+			}
+			if(respData.a.system.errror){
+				// console.log(JSON.stringify(respData.a.system.errror, null, '  '));
+			}
+		}catch(e){
+			console.log('huodong_doplay_282 error', e, body);
+		}
+
+	});
+}
+
+function club_boss_fight(bossId){
+	var sortHeros = heros.sort(function(h1, h2){return h1.zz.e1 - h2.zz.e1});
+	sortHeros.reverse();
+	sortHeros.forEach(function(h, index){
+		setTimeout(club_boss_fight_hero.bind(this, bossId, h.id), (index + 1)*100);
+
+	});
+}
+
+function club_boss_fight_hero(bossId, hid){
+	var bossPk = {"club":{"clubBossPK":{"cbid":bossId,"id":hid}}};
+	console.log('打副本boss - ', bossId, hid, getHeroName(hid));
+	request.post({url: apiUrl, form: JSON.stringify(bossPk)}, function(error, response, body){
+		
+	});
 }

@@ -126,6 +126,10 @@ var school = {};
 var mingwang = {};
 var hanlin_running = false;
 
+var shili_ranking = [];
+var topUsers = [];
+
+
 /**
 * 服务器列表
 */ 
@@ -138,6 +142,9 @@ function listserver(){
 	  }
 	});
 }
+
+
+
 
 /**
 * 随机等待n秒
@@ -295,48 +302,17 @@ function finalLogin(){
 }
 	
 function startTask(){
-
 	doTask();
-
-	setTimeout(fastLogin, 300000 + randomWait(300));
-/*
-	setTimeout(function(){
-		isTaskRunning = false;
-		if(serverUrl == serverUrl_4){
-			console.log('切换到服务区5', new Date().toLocaleString());
-			serverUrl = serverUrl_5;
-			vipHeros = vipHeros_5;
-			try{
-				fastLogin();
-			}catch(e){
-				console.log(e);
-			}
-			
-		}else if(serverUrl == serverUrl_5){
-			console.log('切换到服务区6', new Date().toLocaleString());
-			serverUrl = serverUrl_6;
-			vipHeros = vipHeros_6;
-			fastLogin();
-		}else if(serverUrl == serverUrl_6){
-			console.log('切换到服务区4', new Date().toLocaleString());
-			serverUrl = serverUrl_4;
-			vipHeros = vipHeros_4;
-			fastLogin();
-		}
-
-	}, 300000);  // 5分钟后重新执行
-*/
+	
+	setTimeout(fastLogin, 300000 + randomWait(60));
 }
 
 //var isTaskRunning = false;
 function doTask(){
 	// 执行任务
-
-	//if(isTaskRunning) return;
-	//isTaskRunning = true;
-
 	console.log('开始执行任务', new Date().toLocaleString());
 
+	doDailyTask();
 
 	setTimeout(checkJingying, randomWait(30));   // 经营
 	setTimeout(doZhengwu, randomWait(30));       // 政务
@@ -347,39 +323,93 @@ function doTask(){
 	setTimeout(uppkskill, randomWait(30));       // 门客技能升级
 	// setTimeout(doHeroUpgrade, randomWait(30));  // 门客等级升级
 
-
-	setTimeout(fuli_qiandao, randomWait(60));     // 每日签到
-	setTimeout(mobai, randomWait(60));            // 膜拜榜单
-
 	if(mingwang.mw == mingwang.maxmw){				// 名望满时，执行牢房任务
 		setTimeout(laofang, randomWait(120));      // 牢房
 	}
-
 	if(!hanlin_running){
 		setTimeout(hanlin, randomWait(5));
 		hanlin_running = true;
-	}
+	}	
 	
-	setTimeout(qingan, randomWait(60));           // 皇宫请安
 
 	setTimeout(yamen, randomWait(30));            // 衙门战斗
 	setTimeout(wordboss, randomWait(30));         // 中午 匈奴兵来袭
-
-
 	setTimeout(wordboss_gofightg2d, randomWait(5));         // 围剿匈奴王
-
 	
 	setTimeout(keju, randomWait(10));
-	setTimeout(huodong, randomWait(20));
+	// setTimeout(huodong, randomWait(20));
 	setTimeout(club_boss, randomWait(10));
-	// setTimeout(jiulou, randomWait(30));           // 酒楼
-
+	setTimeout(jiulou, randomWait(30));           // 酒楼
 
 	setTimeout(pve.bind(this, 40), randomWait(120));
+
+}
+
+
+var dailyTaskTag = {};
+function doDailyTask(){
+	var dateStr = new Date().toISOString().slice(0, 10);
+	if(dailyTaskTag[dateStr]){
+		return;
+	}
 	
+	list_shili();   // 获取势力榜, 用户信息
+
+	setTimeout(qingan, randomWait(60));           // 皇宫请安
+	setTimeout(fuli_qiandao, randomWait(60));     // 每日签到
+	setTimeout(mobai, randomWait(60));            // 膜拜榜单
+	
+	dailyTaskTag[dateStr] = true;
+
+}
+
+
+/**
+* 获取势力榜
+*/
+function list_shili(){
+	var formData = '{"ranking":{"paihang":{"type":1}}}';
+	request.post({url: apiUrl, form: formData}, function(error, response, body){
+		if(!error && response.statusCode == 200){
+
+			try{
+				var respData = JSON.parse(body);
+				if(respData.s = 1 && respData.a.ranking){
+					shili_ranking = respData.a.ranking.shili;
+
+					shili_ranking.forEach(function(rank, index){
+						setTimeout(getFuserInfo.bind(this, rank.uid, index * 1000 + randomWait(3)));
+					});
+				}
+			}catch(e){
+
+			}
+		}
+	});
+
 	
 }
 
+/**
+* 获取用户信息
+*/ 
+function getFuserInfo(uid){
+	var formData = {"user":{"getFuserMember":{"id":uid}}};
+	request.post({url: apiUrl, form: JSON.stringify(formData)}, function(error, response, body){
+		if(!error && response.statusCode == 200){
+
+			try{
+				var respData = JSON.parse(body);
+				if(respData.s = 1 && respData.a.user){
+					var fuser = respData.a.user.fuser;
+					topUsers[fuser.id] = fuser;
+				}
+			}catch(e){
+
+			}
+		}
+	});
+}
 
 /**
 * 经营
@@ -1456,8 +1486,6 @@ function wordboss_fight(hid){
 function wordboss_gofightg2d(){
 	var cur_date = new Date();
 	if(cur_date.getHours() < 20 || cur_date.getHours() >= 21){
-		console.log('围剿匈奴王 - 时间未到', new Date().toLocaleString());
-		setTimeout(wordboss_gofightg2d, 300 * 1000);
 		return;
 	}
 
@@ -1580,6 +1608,13 @@ var hanlin_sit_time = 0;
 var challengeRecord = [];
 
 function hanlin(){
+
+	var hour = new Date().getHours();
+	if(hour <= 5){
+		setTimeout(hanlin, 300 * 1000);
+		return;
+	}
+
 	var hanlin_info = '{"hanlin":{"listinfo":[]}}';
 	
 	if(hanlin_check_count == 0) {
@@ -1604,11 +1639,11 @@ function hanlin(){
 				hanlin_check_count++;
 
 				if(ting && ting.length > 0){
-					ting.forEach(function(t, index){
-						//if(t.num2 < 3){
-							setTimeout(hanlin_comein.bind(this, t.uid), index * 1000 + randomWait(3));
+					ting.sort(function(t1, t2){return t1.level - t2.level;}).reverse().forEach(function(t, index){
+						if(t.level >= 8){
+							setTimeout(hanlin_comein.bind(this, t.uid), randomWait(3));
 							//return;
-						//}
+						}
 					});
 				}
 			}
@@ -1621,7 +1656,7 @@ function hanlin(){
 
 	});
 
-	setTimeout(hanlin, randomWait(30));  // 5秒钟检测一次
+	setTimeout(hanlin, randomWait(10));  // 5秒钟检测一次
 }
 
 function hanlin_comein(fuid){
@@ -1645,17 +1680,33 @@ function hanlin_comein(fuid){
 
 				// 挑战 
 				desks.forEach(function(desk, index){
-					if(desk.num == 0 && desk.level <= userParam.level){
-						var challenger = challengeRecord.find(function(ch){return ch.uid == desk.uid;});
-						// console.log('习武-挑战条件检查',challengeRecord);
-						if(challenger && (new Date().getTime() - challenger.timestamp) < 12 * 3600000 ){
-							console.log('12小时内不再重复挑战', fuid);
-
-						}else{
-							setTimeout(hanlin_ti.bind(this, fuid, desk), index * 1000 + 400);
-						}
-
+					if(desk.num > 0) return;   // 保护中
+					
+					if(desk.level > userParam.level) {
+						return;
 					}
+					if(desk.level == userParam.level){
+						var deskUser = topUsers[desk.uid];
+						if(deskUser){
+							if(deskUser.exp > userParam.exp){
+								// console.log('习武-挑战条件检查, 政绩比拼失败，不挑战', deskUser.name, deskUser.exp, userParam.exp);
+								return;
+							}
+						}
+					}
+
+					
+					var challenger = challengeRecord.find(function(ch){return ch.uid == desk.uid;});
+					// console.log('习武-挑战条件检查',challengeRecord);
+					if(challenger && (new Date().getTime() - challenger.timestamp) < 12 * 3600000 ){
+						console.log('12小时内不再重复挑战', fuid);
+
+					}else{
+						// 开始挑战
+						setTimeout(hanlin_ti.bind(this, fuid, desk), index * 1000 + 400);
+					}
+
+					
 				});
 				
 			}
